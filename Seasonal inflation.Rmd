@@ -1,0 +1,161 @@
+---
+title: "monthly inflation rate"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(forecast)
+library(tidyverse)
+```
+
+```{r}
+inflation_germany <- read.csv('~/Downloads/germany.inflation.monthly (statbureau.org).csv', 
+                              header = TRUE, stringsAsFactors = TRUE) %>%
+  arrange(Year)
+```
+
+```{r}
+inflation_germany %>%
+  head
+```
+```{r}
+inflation_germany %>%
+  filter(Year >= 2008) %>%
+  select(-one_of('Total')) %>%
+  gather(key = "month", value = "inflation_rate", 2:13) %>%
+  arrange(Year) %>%
+  select(inflation_rate) %>%
+  plot.ts()
+```
+
+```{r}
+german_infl <- inflation_germany %>%
+  filter(Year >= 2008) %>%
+  select(-one_of('Total')) %>%
+  gather(key = "month", value = "inflation_rate", 2:13) %>%
+  arrange(Year) %>%
+  select(inflation_rate) %>%
+  ts(start = 2008, frequency = 12)
+```
+
+
+```{r}
+plot(german_infl)
+```
+
+Classical Seasonal Decomposition 
+
+```{r}
+decompose(german_infl, type = "a") %>%
+  plot
+```
+
+```{r}
+stl(german_infl, s.window = 7, na.action = na.contiguous) %>%
+  plot
+```
+
+
+```{r}
+stl(german_infl, s.window = 7, na.action = na.contiguous) %>%
+  forecast() %>%
+  plot
+
+stlf(german_infl, method='ets', s.window = 7) %>%
+  plot
+```
+
+```{r}
+ets(german_infl) %>%
+  forecast(h=24) %>%
+  plot
+```
+
+```{r}
+library(plotly)
+```
+```{r}
+ets(german_infl) %>%
+  forecast(h=24)
+```
+
+
+```{r}
+stlf(german_infl, method = "ets") %>%
+  autoplot()
+
+ets(german_infl) %>%
+  forecast(h=24) %>%
+  autoplot()
+```
+
+
+```{r}
+auto.arima(german_infl, stepwise = T, approximation = F, trace = T)
+```
+```{r}
+german_inflation <- auto.arima(german_infl, stepwise = T, approximation = F, trace = T)
+
+forecast(german_inflation) %>%
+  autoplot()
+```
+
+
+```{r}
+ets(german_infl, additive.only = T)
+```
+
+
+```{r}
+ets(german_infl, model = "ZZZ", additive.only = T, use.initial.values = F) %>%
+  forecast(h=60) %>%
+  autoplot()
+```
+
+```{r}
+hw(german_infl) %>%
+  summary()
+```
+
+
+```{r}
+hw(german_infl, h = 60) %>%
+  autoplot()
+```
+
+Cross validation
+
+```{r}
+forecastets <- function(x, h){
+  ets(x) %>%
+    forecast(h=h)
+}
+
+forecastarima <- function(x, h){
+  auto.arima(x) %>%
+    forecast(stepwise = T, approximation = F, h=h)
+}
+```
+
+
+```{r}
+etserror <- tsCV(german_infl, forecastets, h=1)
+arimaerror <- tsCV(german_infl, forecastarima, h=1)
+```
+
+```{r}
+mean(etserror^2, na.rm = T)
+mean(arimaerror^2, na.rm = T)
+```
+
+
+```{r}
+sd(etserror^2, na.rm = T)
+sd(arimaerror^2, na.rm = T)
+```
+
